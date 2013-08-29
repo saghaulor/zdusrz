@@ -2,8 +2,6 @@ require 'psych'
 require 'faraday'
 require 'faraday_middleware'
 require 'csv'
-#require 'pry-debugger'
-
 
 credentials = Psych.load_file('auth.yml')
 email = credentials['username']
@@ -12,7 +10,6 @@ password = credentials['password']
 @client = Faraday.new(url: 'https://coupa.zendesk.com') do |conn|
   conn.basic_auth(email, password)
   conn.response :json, :content_type => /\bjson$/
-  #conn.use FaradayMiddleware::Mashify 
   conn.adapter Faraday.default_adapter
 end
 
@@ -21,17 +18,35 @@ def fetch_end_users(counter = 1)
     req.headers['Content-Type'] = 'application/json'
     req.params['page'] = "#{counter}"
     req.params['role'] = 'end-user'
-    #req.params['suspended'] = false
-    #req.params['active'] = true
   end
 end
 
-@orgs = {}
+def fetch_all_end_users
+  counter = 1
+  @response = fetch_end_users(counter)
+  parse_name_org_id_and_email(@response)
+  until @response.body['next_page'].nil? == true
+    counter += 1
+    @response = fetch_end_users(counter)
+    parse_name_org_id_and_email(@response)
+  end
+end
 
 def fetch_orgs(counter = 1)
   @client.get 'api/v2/organizations.json' do |req|
     req.params['page'] = "#{counter}"
     req.headers['Content-Type'] = 'application/json'
+  end
+end
+
+def fetch_all_orgs
+  counter = 1
+  @response = fetch_orgs(counter)
+  parse_orgs(@response)
+  until @response.body['next_page'].nil? == true
+    counter += 1
+    @response = fetch_orgs(counter)
+    parse_orgs(@response)
   end
 end
 
@@ -41,38 +56,39 @@ def parse_orgs(response)
   end
 end
 
-def fetch_all_end_users
-  @response = fetch_end_users(1)
-  until @response.body['next_page'].empty?
-    counter += 1
-    @response = fetch_end_users
-    puts counter
-  end
-end
-
-def add_to_csv(params)
-  CSV.open(params[:filename], 'wb') do |row|
-    row << [params[:name], params[:email], params[:org_name]]
+def add_users_to_csv(filename = @csv_filename, users = @users)
+  CSV.open(filename, 'wb') do |row|
+    users.map do |user|
+      row << [user[:name], user[:email], user[:org_id], user[:org_name]]
+    end
   end
 end
 
 def org_name_lookup(org_id)
-  @orgs[params[:org_id]]
+  @orgs[org_id]
 end
 
-def parse_name_orgid_and_email(response)
+def parse_name_org_id_and_email(response) 
   response.body['users'].map do |user|
-    name = user['name']
-    email = user['email']
-    org_name = org_name_lookup(user['organization_id'])
-    add_to_csv(filename: csv_filename, name: name, email: email, org_name: org_name)
+    @users << { name: user['name'], 
+      email: user['email'], 
+      org_id: user['organization_id'], 
+      org_name: org_name_lookup(user['organization_id'].to_s) }
   end
 end
 
-csv_filename = "users_#{Time.now.strftime('%Y%m%d%H%M%S')}.csv"
-CSV.open(csv_filename, 'wb') do |header|
-  header << ['user_name', 'email', 'organization_name']
+@orgs = {}
+@users = []
+
+@csv_filename = "users_#{Time.now.strftime('%Y%m%d%H%M%S')}.csv"
+CSV.open(@csv_filename, 'wb') do |header|
+  header << ['user_name', 'email', 'organization_id', 'organization_name']
 end
-#response = fetch_end_users(26)
-#puts response.body
-#fetch_all_end_users
+
+puts "Fetching organizations."
+fetch_all_orgs
+puts "Fetching end-users."
+fetch_all_end_users
+puts "Adding users and their org to #{@csv_filename}"
+add_users_to_csv
+puts "All done!"
