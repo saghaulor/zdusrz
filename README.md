@@ -3,6 +3,8 @@ zdusrz
 
 A tool to call the Zendesk API and aggregate end user info into csv.
 
+Dependencies: Ruby v1.9.3, git, bundler
+
 Clone the code:
 
 ```#!bash
@@ -19,7 +21,7 @@ $ echo 'username: "<your zendesk username here>"\npassword: "<your zendesk passw
 ```
 Fetch the user list: 
 ```#!bash
-$ bundle exec ruby zdursz.rb
+$ bundle exec ruby zdusrz.rb
 ```
 Profit: 
 ```#!bash
