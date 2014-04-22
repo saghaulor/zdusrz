@@ -58,6 +58,7 @@ end
 
 def add_users_to_csv(filename = @csv_filename, users = @users)
   CSV.open(filename, 'wb') do |row|
+      row << ['username', 'email', 'org_id', 'org_name']
     users.map do |user|
       row << [user[:name], user[:email], user[:org_id], user[:org_name]]
     end
