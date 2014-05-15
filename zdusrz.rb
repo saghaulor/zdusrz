@@ -78,18 +78,22 @@ def parse_name_org_id_and_email(response)
   end
 end
 
+def scrub_data(users = @users)
+  @users = users.reject! {|user| user[:email] == nil || user[:email] == ''}
+  @users.uniq
+end
+
 @orgs = {}
 @users = []
 
 @csv_filename = "users_#{Time.now.strftime('%Y%m%d%H%M%S')}.csv"
-CSV.open(@csv_filename, 'wb') do |header|
-  header << ['user_name', 'email', 'organization_id', 'organization_name']
-end
 
 puts "Fetching organizations."
 fetch_all_orgs
 puts "Fetching end-users."
 fetch_all_end_users
+puts "Scrubbing data"
+scrub_data
 puts "Adding users and their org to #{@csv_filename}"
 add_users_to_csv
 puts "All done!"
