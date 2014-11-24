@@ -24,11 +24,15 @@ end
 def fetch_all_end_users
   counter = 1
   @response = fetch_end_users(counter)
-  parse_name_org_id_and_email(@response)
-  until @response.body['next_page'].nil? == true
-    counter += 1
-    @response = fetch_end_users(counter)
+  if @response.success?
     parse_name_org_id_and_email(@response)
+    until @response.body['next_page'].nil? == true
+      counter += 1
+      @response = fetch_end_users(counter)
+      parse_name_org_id_and_email(@response)
+    end
+  else
+    raise @response.body['error']
   end
 end
 
@@ -42,11 +46,15 @@ end
 def fetch_all_orgs
   counter = 1
   @response = fetch_orgs(counter)
-  parse_orgs(@response)
-  until @response.body['next_page'].nil? == true
-    counter += 1
-    @response = fetch_orgs(counter)
+  if @response.success?
     parse_orgs(@response)
+    until @response.body['next_page'].nil? == true
+      counter += 1
+      @response = fetch_orgs(counter)
+      parse_orgs(@response)
+    end
+  else
+    raise @response.body['error']
   end
 end
 
@@ -69,18 +77,18 @@ def org_name_lookup(org_id)
   @orgs[org_id]
 end
 
-def parse_name_org_id_and_email(response) 
+def parse_name_org_id_and_email(response)
   response.body['users'].map do |user|
-    @users << { name: user['name'], 
-      email: user['email'], 
-      org_id: user['organization_id'], 
-      org_name: org_name_lookup(user['organization_id'].to_s) }
+    @users << { name: user['name'],
+                email: user['email'],
+                org_id: user['organization_id'],
+                org_name: org_name_lookup(user['organization_id'].to_s) }
   end
 end
 
 def scrub_data(users = @users)
   @users = users.reject! {|user| user[:email] == nil || user[:email] == ''}
-  @users.uniq
+  @users.uniq {|user| user[:email] }
 end
 
 @orgs = {}
